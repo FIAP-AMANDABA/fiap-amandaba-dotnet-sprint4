@@ -14,8 +14,8 @@ namespace Amandaba.API.Application.UseCases
         public GeminiUseCase(HttpClient httpClient, IConfiguration configuration)
         {
             _httpClient = httpClient;
-            _apiKey = configuration["Gemini:ApiKey"];
-            _apiUrl = configuration["Gemini:Url"];
+            _apiKey = configuration["Gemini:ApiKey"] ?? string.Empty;
+            _apiUrl = configuration["Gemini:Url"] ?? string.Empty;
         }
 
         public async Task<string> GerarPlanoDeCuidadosAsync(

@@ -384,7 +384,7 @@ DADOS TÉCNICOS:
             
         }
 
-        private object ObterDadosDinamicos(IServiceProvider provider, string useCaseSuffix, decimal petId)
+        private object? ObterDadosDinamicos(IServiceProvider provider, string useCaseSuffix, decimal petId)
         {
             
                 var tipoInterface = AppDomain.CurrentDomain.GetAssemblies()

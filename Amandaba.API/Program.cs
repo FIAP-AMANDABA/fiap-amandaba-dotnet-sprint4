@@ -24,7 +24,8 @@ using Serilog;
 using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+if (!builder.Environment.IsEnvironment("Testing"))
+    builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
 
 // Serilog
@@ -80,7 +81,9 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     });
 });
 
-var chaveJwt = builder.Configuration["Jwt:Secret"];
+var chaveJwt = builder.Environment.IsEnvironment("Testing")
+    ? "somente-testes-xunit-chave-que-nao-deve-ser-usada-fora"
+    : builder.Configuration["Jwt:Secret"];
 if (string.IsNullOrWhiteSpace(chaveJwt))
 {
     if (!builder.Environment.IsEnvironment("Testing"))

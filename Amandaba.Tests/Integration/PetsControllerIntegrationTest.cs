@@ -31,14 +31,10 @@ namespace Amandaba.Tests.Integration
                 $"/api/pets/{petId}"
             );
 
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var pet = await response.Content
                 .ReadFromJsonAsync<PetResponseDto>();
-
-            // Assert
-            Assert.Equal(
-                HttpStatusCode.OK,
-                response.StatusCode
-            );
 
             Assert.NotNull(pet);
             Assert.Equal(1, pet.IdPet);
@@ -87,19 +83,11 @@ namespace Amandaba.Tests.Integration
                 $"/api/pets/{petId}"
             );
 
+            // Assert
+            Assert.Equal(HttpStatusCode.NoContent, patchResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
             var pet = await getResponse.Content
                 .ReadFromJsonAsync<PetResponseDto>();
-
-            // Assert
-            Assert.Equal(
-                HttpStatusCode.NoContent,
-                patchResponse.StatusCode
-            );
-
-            Assert.Equal(
-                HttpStatusCode.OK,
-                getResponse.StatusCode
-            );
 
             Assert.NotNull(pet);
             Assert.Equal("INATIVO", pet.Status);
