@@ -8,7 +8,10 @@ using Amandaba.API.Application.Interfaces;
 using Amandaba.API.Domain.Interfaces;
 using Amandaba.API.Application.UseCases;
 using Amandaba.API.Presentation.Filters;
-using Amandaba.API.Infrastructure.Mongo;
+using Amandaba.API.Infrastructure.Data;
+using Amandaba.API.Infrastructure.Data.Repositories;
+using Amandaba.API.Infrastructure.Health;
+using Amandaba.API.Infrastructure.Services;
 using Amandaba.Application.Interfaces;
 using Amandaba.Application.UseCases;
 using Amandaba.Domain.Interfaces;
@@ -67,6 +70,10 @@ builder.Services.AddSerilog();
 
 // Controllers
 builder.Services.AddScoped<IPetAccessService, PetAccessService>();
+builder.Services.AddScoped<IIntegracaoOracleRepository, IntegracaoOracleRepository>();
+builder.Services.AddScoped<IIntegracaoOracleUseCase, IntegracaoOracleUseCase>();
+builder.Services.AddScoped<IPesoHistoricoUseCase, PesoHistoricoUseCase>();
+builder.Services.AddScoped<IPlanoCuidadosUseCase, PlanoCuidadosUseCase>();
 builder.Services.AddScoped<PetAccessFilter>();
 builder.Services.AddControllers(options => options.Filters.AddService<PetAccessFilter>());
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -125,6 +132,15 @@ builder.Services.AddDbContext<ApplicationContext>(options =>
     );
 });
 
+// MongoDB com EF Core, como na aula do professor (MongoApplicationContext + DbSet).
+// O MongoDB local usa mongodb://localhost:27017 por padrão.
+builder.Services.AddDbContext<MongoApplicationContext>(options =>
+{
+    options.UseMongoDB(
+        builder.Configuration.GetConnectionString("Mongodb") ?? "mongodb://localhost:27017",
+        builder.Configuration["MongoDb:DatabaseName"] ?? "amandaba");
+});
+
 // Repositories
 builder.Services.AddTransient<IPetRepository, PetRepository>();
 builder.Services.AddTransient<IEspecieRepository, EspecieRepository>();
@@ -150,19 +166,23 @@ builder.Services.AddTransient<IMedicamentoUseCase, MedicamentoUseCase>();
 builder.Services.AddTransient<IConsultaUseCase, ConsultaUseCase>();
 builder.Services.AddTransient<IExameUseCase, ExameUseCase>();
 
-// Health Checks - Oracle e registrado apenas se a conexao estiver configurada.
+// Aula 05: HealthCheckService e endpoints segregados por tags.
+// MongoDB e Gemini usam IHealthCheck; o CRUD do MongoDB utiliza EF Core.
+builder.Services.AddHttpClient();
 var healthChecks = builder.Services.AddHealthChecks()
-    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live"]);
+    .AddCheck("self", () => HealthCheckResult.Healthy(), tags: ["live", "ready"])
+    .AddCheck<MongoHealthCheck>("mongodb", tags: ["nosql", "ready"])
+    .AddCheck<GeminiHealthCheck>("gemini", tags: ["external", "ready"]);
 var conexaoOracle = builder.Configuration.GetConnectionString("Oracle");
 if (!string.IsNullOrWhiteSpace(conexaoOracle))
 {
     healthChecks.AddOracle(connectionString: conexaoOracle, name: "oracle",
-        failureStatus: HealthStatus.Unhealthy, tags: ["db"]);
+        failureStatus: HealthStatus.Unhealthy, tags: ["db", "ready"]);
 }
 else
 {
     healthChecks.AddCheck("oracle", () => HealthCheckResult.Unhealthy("Conexao Oracle nao configurada."),
-        tags: ["db"]);
+        tags: ["db", "ready"]);
 }
 
 // Application Insights
@@ -173,7 +193,7 @@ if (!string.IsNullOrWhiteSpace(builder.Configuration["ApplicationInsights:Connec
 }
 
 // Gemini
-builder.Services.AddHttpClient<GeminiUseCase>();
+builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 
 // Swagger / OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -248,6 +268,25 @@ app.MapHealthChecks("/health/live", new HealthCheckOptions
 app.MapHealthChecks("/health/db", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("db")
+});
+
+app.MapHealthChecks("/health/mongo", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("nosql"),
+    ResultStatusCodes = { [HealthStatus.Healthy] = 200, [HealthStatus.Degraded] = 200,
+        [HealthStatus.Unhealthy] = 503 }
+});
+app.MapHealthChecks("/health/external", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("external"),
+    ResultStatusCodes = { [HealthStatus.Healthy] = 200, [HealthStatus.Degraded] = 200,
+        [HealthStatus.Unhealthy] = 503 }
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResultStatusCodes = { [HealthStatus.Healthy] = 200, [HealthStatus.Degraded] = 200,
+        [HealthStatus.Unhealthy] = 503 }
 });
 
 app.Run();

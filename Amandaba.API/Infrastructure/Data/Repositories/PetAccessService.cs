@@ -25,12 +25,14 @@ public class PetAccessService : IPetAccessService
         .AsNoTracking().Where(v => v.IdUsuario == idUsuario && v.Status == "ATIVO")
         .Select(v => (decimal?)v.IdVeterinario).FirstOrDefault();
 
+    public bool UsuarioAtivo(decimal idUsuario) => _db.Usuarios.AsNoTracking()
+        .Any(u => u.IdUsuario == idUsuario && u.Status == "ATIVO");
+
     public bool ExistePet(decimal petId) => _db.Pets.AsNoTracking().Any(p => p.IdPet == petId);
 
     public bool PodeAcessarPet(decimal idUsuario, decimal idPet, bool somenteTutor, string perfil)
     {
-        var ativo = _db.Usuarios.AsNoTracking().Any(u => u.IdUsuario == idUsuario && u.Status == "ATIVO");
-        if (!ativo) return false;
+        if (!UsuarioAtivo(idUsuario)) return false;
 
         var pet = _db.Pets.AsNoTracking().Where(p => p.IdPet == idPet)
             .Select(p => new { p.IdTutor }).FirstOrDefault();

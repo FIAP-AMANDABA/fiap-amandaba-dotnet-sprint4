@@ -1,7 +1,9 @@
-﻿namespace Amandaba.Application.Dtos.Vacinas
+namespace Amandaba.Application.Dtos.Vacinas
 {
     public class VacinaCatalogoResponseDto
     {
+        public List<Amandaba.API.Application.Dtos.LinkDto> Links { get; set; } = new();
+
         public decimal IdVacina { get; set; }
 
         public string Nome { get; set; } = string.Empty;

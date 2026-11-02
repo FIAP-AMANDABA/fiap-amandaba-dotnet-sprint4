@@ -1,7 +1,8 @@
-﻿using Amandaba.API.Domain.Interfaces;
+using Amandaba.API.Domain.Interfaces;
 using Amandaba.Application.Dtos.Pets;
 using Amandaba.Application.Interfaces;
 using Amandaba.Application.Mappers;
+using Amandaba.Domain.Rules;
 
 namespace Amandaba.Application.UseCases
 {
@@ -23,6 +24,24 @@ namespace Amandaba.Application.UseCases
                 .ObterPorTutor(idTutor)
                 .Select(p => p.ToResponseDto())
                 .ToList();
+        }
+
+        public Amandaba.API.Application.Dtos.PageResponseDto<PetResponseDto> ObterPorTutorPaginado(
+            decimal idTutor, int pagina, int tamanho, string? nome, string? ordem)
+        {
+            if (!_petRepository.ExisteTutor(idTutor))
+                throw new KeyNotFoundException("Tutor nao encontrado.");
+            pagina = Math.Max(1, pagina);
+            tamanho = Math.Clamp(tamanho, 1, 100);
+            var deslocamento = (int)Math.Min((long)(pagina - 1) * tamanho, int.MaxValue);
+            var (dados, total) = _petRepository.ObterPorTutorPaginado(
+                idTutor, nome, string.Equals(ordem, "nome_desc", StringComparison.OrdinalIgnoreCase),
+                deslocamento, tamanho);
+            return new Amandaba.API.Application.Dtos.PageResponseDto<PetResponseDto>
+            {
+                Deslocamento = deslocamento, RegistroRetornado = tamanho,
+                TotalRegistros = total, Items = dados.Select(p => p.ToResponseDto()).ToList()
+            };
         }
 
         public PetResponseDto? ObterPorId(decimal idPet)
@@ -71,14 +90,7 @@ namespace Amandaba.Application.UseCases
             if (pet is null)
                 return false;
 
-            var status = dto.Status.Trim().ToUpper();
-
-            if (status != "ATIVO" && status != "INATIVO")
-                throw new ArgumentException(
-                    "Status inválido. Utilize ATIVO ou INATIVO."
-                );
-
-            pet.Status = status;
+            pet.Status = PetRules.ValidarStatus(dto.Status);
 
             _petRepository.Atualizar(pet);
 
@@ -90,27 +102,9 @@ namespace Amandaba.Application.UseCases
             if (!_petRepository.ExisteEspecie(dto.IdEspecie))
                 throw new ArgumentException("Espécie informada não existe.");
 
-            if (dto.DataNascimento.HasValue &&
-                dto.DataNascimento.Value.Date > DateTime.Today)
-            {
-                throw new ArgumentException(
-                    "A data de nascimento não pode ser futura."
-                );
-            }
-
-            if (!string.IsNullOrWhiteSpace(dto.Sexo))
-            {
-                var sexo = dto.Sexo.Trim().ToUpper();
-
-                if (sexo != "MACHO" && sexo != "FEMEA")
-                    throw new ArgumentException(
-                        "Sexo inválido. Utilize MACHO ou FEMEA."
-                    );
-
-                dto.Sexo = sexo;
-            }
-
-            dto.Nome = dto.Nome.Trim();
+            PetRules.ValidarNascimento(dto.DataNascimento);
+            dto.Sexo = PetRules.ValidarSexo(dto.Sexo);
+            dto.Nome = PetRules.ValidarNome(dto.Nome);
         }
     }
 }

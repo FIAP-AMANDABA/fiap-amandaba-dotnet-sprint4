@@ -1,3 +1,4 @@
+using Amandaba.API.Presentation;
 using Microsoft.AspNetCore.Authorization;
 using Amandaba.API.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -24,7 +25,10 @@ namespace Amandaba.Presentation.Controllers
         [SwaggerOperation(Summary = "Listar catálogo de vacinas")]
         public IActionResult ObterCatalogo()
         {
-            return Ok(_vacinaUseCase.ObterCatalogo());
+            var vacinas = _vacinaUseCase.ObterCatalogo().ToList();
+            foreach (var vacina in vacinas)
+                vacina.Links = new() { new($"/api/vacinas/{vacina.IdVacina}", "self") };
+            return Ok(vacinas);
         }
 
         [HttpGet("{vacinaId}")]
@@ -36,6 +40,8 @@ namespace Amandaba.Presentation.Controllers
             if (vacina is null)
                 return NotFound(new { mensagem = "Vacina não encontrada." });
 
+            vacina.Links = new() { new($"/api/vacinas/{vacinaId}", "self"),
+                new("/api/vacinas", "catalogo") };
             return Ok(vacina);
         }
     }

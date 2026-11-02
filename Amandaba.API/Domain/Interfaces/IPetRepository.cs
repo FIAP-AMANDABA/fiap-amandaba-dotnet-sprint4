@@ -1,10 +1,12 @@
-﻿using Amandaba.Domain.Entities;
+using Amandaba.Domain.Entities;
 
 namespace Amandaba.API.Domain.Interfaces
 {
     public interface IPetRepository
     {
         IEnumerable<PetEntity> ObterPorTutor(decimal idTutor);
+        (IEnumerable<PetEntity> data, int rowsCount) ObterPorTutorPaginado(
+            decimal idTutor, string? nome, bool ordemDescendente, int deslocamento, int registrosRetornados);
 
         PetEntity? ObterPorId(decimal idPet);
 

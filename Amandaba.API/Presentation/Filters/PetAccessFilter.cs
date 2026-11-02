@@ -1,6 +1,7 @@
 using Amandaba.API.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Amandaba.API.Presentation.Filters;
 
@@ -20,10 +21,17 @@ public class PetAccessFilter : IAsyncActionFilter
         decimal tutorId = 0;
         bool rotaDeTutor = rota.TryGetValue("idTutor", out var tutorObj) &&
                            decimal.TryParse(tutorObj?.ToString(), out tutorId);
-        if (!rotaDePet && !rotaDeTutor) { await next(); return; }
-
+        // Rotas publicas de monitoramento nao exigem usuario ativo.
+        if (context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<IAllowAnonymous>() != null)
+        { await next(); return; }
         var userId = _acesso.ObterIdUsuario(context.HttpContext.User);
         if (!userId.HasValue) { context.Result = new UnauthorizedObjectResult(new { mensagem = "JWT sem userId valido." }); return; }
+        if (!_acesso.UsuarioAtivo(userId.Value))
+        {
+            context.Result = new ObjectResult(new { mensagem = "Usuario inativo ou inexistente." }) { StatusCode = 403 };
+            return;
+        }
+        if (!rotaDePet && !rotaDeTutor) { await next(); return; }
         var perfil = context.HttpContext.User.FindFirst("perfil")?.Value ?? "";
         if (rotaDeTutor)
         {

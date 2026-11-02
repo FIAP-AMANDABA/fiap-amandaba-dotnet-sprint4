@@ -71,5 +71,23 @@ namespace Amandaba.Presentation.Controllers
                     result
                 );
         }
+        [HttpGet("ready")]
+        public async Task<IActionResult> Completo(CancellationToken ct)
+        {
+            var report = await _healthService.CheckHealthAsync(r => r.Tags.Contains("ready"), ct);
+            var resultado = new
+            {
+                status = report.Status.ToString(),
+                checks = report.Entries.Select(entry => new
+                {
+                    name = entry.Key,
+                    status = entry.Value.Status.ToString(),
+                    description = entry.Value.Description
+                })
+            };
+            return report.Status == HealthStatus.Unhealthy
+                ? StatusCode(StatusCodes.Status503ServiceUnavailable, resultado)
+                : Ok(resultado);
+        }
     }
 }

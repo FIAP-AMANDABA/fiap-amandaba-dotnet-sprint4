@@ -135,7 +135,14 @@ public class AmandabaApiFactory : WebApplicationFactory<Program>
             DataCadastro = DateTime.UtcNow, Status = "ATIVO"
         };
 
-        context.Usuarios.AddRange(tutor, veterinario, outroTutor);
+        var usuarioInativo = new UsuarioEntity
+        {
+            IdUsuario = 4, Nome = "Usuario Inativo", Cpf = "44444444444",
+            Email = "teste4@exemplo.com", SenhaHash = "teste",
+            DataCadastro = DateTime.UtcNow, Status = "INATIVO"
+        };
+
+        context.Usuarios.AddRange(tutor, veterinario, outroTutor, usuarioInativo);
         context.Tutores.AddRange(
             new TutorEntity { IdTutor = 1, IdUsuario = 1, Usuario = tutor },
             new TutorEntity { IdTutor = 3, IdUsuario = 3, Usuario = outroTutor });

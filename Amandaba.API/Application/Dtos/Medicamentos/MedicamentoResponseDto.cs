@@ -1,7 +1,9 @@
-﻿namespace Amandaba.Application.Dtos.Medicamentos
+namespace Amandaba.Application.Dtos.Medicamentos
 {
     public class MedicamentoResponseDto
     {
+        public List<Amandaba.API.Application.Dtos.LinkDto> Links { get; set; } = new();
+
         public decimal IdRegistroMedicamento { get; set; }
 
         public decimal IdPet { get; set; }

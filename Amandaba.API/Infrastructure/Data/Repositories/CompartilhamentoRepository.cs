@@ -18,6 +18,17 @@ public class CompartilhamentoRepository : ICompartilhamentoRepository
         .AsNoTracking().Include(p => p.Especie)
         .Where(p => _db.PetVeterinarios.Any(v => v.IdVeterinario == veterinarioId && v.IdPet == p.IdPet && v.Status == "ATIVO"))
         .OrderBy(p => p.Nome).ToList();
+    public (IEnumerable<PetEntity> data, int rowsCount) ListarPetsVeterinarioPaginado(
+        decimal veterinarioId, int deslocamento, int registrosRetornados)
+    {
+        var consulta = _db.Pets.AsNoTracking().Include(p => p.Especie)
+            .Where(p => _db.PetVeterinarios.Any(v => v.IdVeterinario == veterinarioId &&
+                v.IdPet == p.IdPet && v.Status == "ATIVO"));
+        var total = consulta.Count();
+        return (consulta.OrderBy(p => p.Nome).ThenBy(p => p.IdPet)
+            .Skip(deslocamento).Take(registrosRetornados).ToList(), total);
+    }
+
     public void Salvar(PetVeterinarioEntity vinculo)
     {
         if (vinculo.IdPetVeterinario == 0) _db.PetVeterinarios.Add(vinculo);

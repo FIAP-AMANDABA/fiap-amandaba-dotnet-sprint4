@@ -1,3 +1,4 @@
+using Amandaba.API.Presentation;
 using Microsoft.AspNetCore.Authorization;
 using Amandaba.Application.Dtos.Pesos;
 using Amandaba.Application.Interfaces;
@@ -32,7 +33,11 @@ namespace Amandaba.Presentation.Controllers
         {
             try
             {
-                return Ok(_pesoUseCase.ObterPorPet(petId));
+                var registros = _pesoUseCase.ObterPorPet(petId).ToList();
+                foreach (var registro in registros)
+                    registro.Links = new() { new($"/api/pets/{petId}/pesos", "historico"),
+                        new($"/api/pets/{petId}/pesos/atual", "atual") };
+                return Ok(registros);
             }
             catch (KeyNotFoundException ex)
             {
@@ -57,6 +62,11 @@ namespace Amandaba.Presentation.Controllers
                 if (peso is null)
                     return NotFound(new { mensagem = "Nenhuma medição encontrada para o pet." });
 
+                peso.Links = new()
+                {
+                    new($"/api/pets/{petId}/pesos/atual", "self"),
+                    new($"/api/pets/{petId}/pesos", "historico")
+                };
                 return Ok(peso);
             }
             catch (KeyNotFoundException ex)

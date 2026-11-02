@@ -1,4 +1,6 @@
 using Amandaba.API.Application.Dtos.Compartilhamentos;
+using Amandaba.API.Application.Dtos;
+using Amandaba.API.Presentation;
 using Amandaba.API.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -29,7 +31,14 @@ public class CompartilhamentosController : ControllerBase
 
     [HttpGet("api/pets/{petId}/veterinarios")]
     public IActionResult Listar(decimal petId) => Ok(_servico.Listar(petId).Select(item => new
-    { item.IdPet, item.IdVeterinario, item.Status, item.DataCompartilhamento }));
+    {
+        item.IdPet, item.IdVeterinario, item.Status, item.DataCompartilhamento,
+        links = new List<LinkDto>
+        {
+            new($"/api/pets/{petId}/veterinarios", "self"),
+            new($"/api/pets/{petId}/veterinarios/{item.IdVeterinario}/revogar", "revogar", "PATCH")
+        }
+    }));
 
     [HttpPatch("api/pets/{petId}/veterinarios/{veterinarioId}/revogar")]
     public IActionResult Revogar(decimal petId, decimal veterinarioId) => _servico.Revogar(petId, veterinarioId)
@@ -42,20 +51,21 @@ public class CompartilhamentosController : ControllerBase
         if (!id.HasValue || User.FindFirst("perfil")?.Value != "VETERINARIO") return Forbid();
         var vetId = _acesso.ObterIdVeterinario(id.Value);
         if (!vetId.HasValue) return Forbid();
-        var pets = _servico.ListarPetsVeterinario(vetId.Value)
-            .Select(p => new { p.IdPet, p.Nome, Especie = p.Especie.Nome, p.Status }).ToList();
-        return Ok(Paginacao(pets, pagina, tamanho, "/api/veterinarios/me/pets"));
-    }
-
-    private object Paginacao<T>(IEnumerable<T> lista, int pagina, int tamanho, string caminho)
-    {
-        pagina = Math.Max(1, pagina); tamanho = Math.Clamp(tamanho, 1, 100);
-        var itens = lista.ToList();
-        return new { pagina, tamanho, total = itens.Count,
-            dados = itens.Skip((pagina - 1) * tamanho).Take(tamanho),
-            links = new[] {
-                new { rel = "self", href = $"{caminho}?pagina={pagina}&tamanho={tamanho}" },
-                new { rel = "next", href = $"{caminho}?pagina={pagina+1}&tamanho={tamanho}" }
-            }.Where(x => x.rel != "next" || pagina * tamanho < itens.Count) };
+        var resultado = _servico.ListarPetsVeterinarioPaginado(vetId.Value, pagina, tamanho);
+        var dados = resultado.Items.Select(p => new
+        {
+            p.IdPet, p.Nome, Especie = p.Especie.Nome, p.Status,
+            links = HateoasLinks.ParaPet(p.IdPet, somenteLeitura: true)
+        }).ToList();
+        var resposta = new PageResponseDto<object>
+        {
+            Deslocamento = resultado.Deslocamento,
+            RegistroRetornado = resultado.RegistroRetornado,
+            TotalRegistros = resultado.TotalRegistros,
+            Items = dados.Cast<object>().ToList(),
+            Links = HateoasLinks.ParaPagina("/api/veterinarios/me/pets", resultado.Pagina,
+                resultado.Tamanho, resultado.Total)
+        };
+        return Ok(resposta);
     }
 }

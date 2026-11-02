@@ -32,4 +32,15 @@ public class CompartilhamentoUseCase : ICompartilhamentoUseCase
     }
 
     public IEnumerable<PetEntity> ListarPetsVeterinario(decimal veterinarioId) => _repo.ListarPetsVeterinario(veterinarioId);
+
+    public Amandaba.API.Application.Dtos.PageResponseDto<PetEntity> ListarPetsVeterinarioPaginado(
+        decimal veterinarioId, int pagina, int tamanho)
+    {
+        pagina = Math.Max(1, pagina);
+        tamanho = Math.Clamp(tamanho, 1, 100);
+        var deslocamento = (int)Math.Min((long)(pagina - 1) * tamanho, int.MaxValue);
+        var (dados, total) = _repo.ListarPetsVeterinarioPaginado(veterinarioId, deslocamento, tamanho);
+        return new Amandaba.API.Application.Dtos.PageResponseDto<PetEntity>
+        { Deslocamento = deslocamento, RegistroRetornado = tamanho, TotalRegistros = total, Items = dados };
+    }
 }

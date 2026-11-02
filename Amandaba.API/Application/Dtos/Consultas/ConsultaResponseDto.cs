@@ -1,7 +1,9 @@
-﻿namespace Amandaba.Application.Dtos.Consultas
+namespace Amandaba.Application.Dtos.Consultas
 {
     public class ConsultaResponseDto
     {
+        public List<Amandaba.API.Application.Dtos.LinkDto> Links { get; set; } = new();
+
         public decimal IdConsulta { get; set; }
 
         public decimal IdPet { get; set; }

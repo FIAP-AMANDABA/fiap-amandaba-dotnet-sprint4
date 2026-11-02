@@ -1,7 +1,8 @@
-using Amandaba.API.Infrastructure.Mongo;
+using Amandaba.API.Application.Dtos.Pesos;
 namespace Amandaba.API.Application.Interfaces;
+
 public interface IPesoMongoRepository
 {
-    PesoHistoricoDocumento? ObterPorPet(decimal petId);
-    void Salvar(PesoHistoricoDocumento documento);
+    PesoHistoricoDto? ObterPorPet(decimal petId);
+    void Salvar(PesoHistoricoDto documento);
 }

@@ -1,4 +1,4 @@
-﻿using Amandaba.API.Domain.Interfaces;
+using Amandaba.API.Domain.Interfaces;
 using Amandaba.Domain.Entities;
 using Amandaba.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +22,24 @@ namespace Amandaba.Infrastructure.Data.Repositories
                 .Where(p => p.IdTutor == idTutor)
                 .OrderBy(p => p.Nome)
                 .ToList();
+        }
+
+        // Aula 07: filtros, ordenacao e Skip/Take no banco, nunca apos ToList().
+        public (IEnumerable<PetEntity> data, int rowsCount) ObterPorTutorPaginado(
+            decimal idTutor, string? nome, bool ordemDescendente, int deslocamento, int registrosRetornados)
+        {
+            var consulta = _context.Pets.AsNoTracking().Include(p => p.Especie)
+                .Where(p => p.IdTutor == idTutor);
+            if (!string.IsNullOrWhiteSpace(nome))
+            {
+                var filtro = nome.Trim().ToLower();
+                consulta = consulta.Where(p => p.Nome.ToLower().Contains(filtro));
+            }
+            var total = consulta.Count();
+            consulta = ordemDescendente
+                ? consulta.OrderByDescending(p => p.Nome).ThenBy(p => p.IdPet)
+                : consulta.OrderBy(p => p.Nome).ThenBy(p => p.IdPet);
+            return (consulta.Skip(deslocamento).Take(registrosRetornados).ToList(), total);
         }
 
         public PetEntity? ObterPorId(decimal idPet)

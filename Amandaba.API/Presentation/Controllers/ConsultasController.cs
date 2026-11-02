@@ -1,3 +1,4 @@
+using Amandaba.API.Presentation;
 using Microsoft.AspNetCore.Authorization;
 using Amandaba.Application.Dtos.Consultas;
 using Amandaba.Application.Interfaces;
@@ -45,12 +46,11 @@ namespace Amandaba.Presentation.Controllers
         {
             try
             {
-                return Ok(
-                    _consultaUseCase.ObterPorPet(
-                        petId,
-                        status
-                    )
-                );
+                var registros = _consultaUseCase.ObterPorPet(petId, status).ToList();
+                foreach (var registro in registros)
+                    registro.Links = HateoasLinks.ParaRegistro(
+                        $"/api/pets/{petId}/consultas/{registro.IdConsulta}");
+                return Ok(registros);
             }
             catch (KeyNotFoundException ex)
             {
@@ -94,6 +94,7 @@ namespace Amandaba.Presentation.Controllers
                     );
                 }
 
+                consulta.Links = HateoasLinks.ParaRegistro($"/api/pets/{petId}/consultas/{consultaId}");
                 return Ok(consulta);
             }
             catch (KeyNotFoundException ex)

@@ -6,4 +6,6 @@ public interface ICompartilhamentoUseCase
     IEnumerable<PetVeterinarioEntity> Listar(decimal petId);
     bool Revogar(decimal petId, decimal veterinarioId);
     IEnumerable<PetEntity> ListarPetsVeterinario(decimal veterinarioId);
+    Amandaba.API.Application.Dtos.PageResponseDto<PetEntity> ListarPetsVeterinarioPaginado(
+        decimal veterinarioId, int pagina, int tamanho);
 }

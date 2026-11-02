@@ -10,7 +10,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Amandaba.API.Application.UseCases;
-using System.Text.Json;
+using Amandaba.API.Application.Interfaces;
+using Amandaba.API.Presentation;
 using System.Linq;
 
 namespace Amandaba.Presentation.Controllers
@@ -25,13 +26,16 @@ namespace Amandaba.Presentation.Controllers
     {
         private readonly IPetUseCase _petUseCase;
         private readonly ILogger<PetsController> _logger;
+        private readonly IPlanoCuidadosUseCase _planoCuidados;
 
         public PetsController(
             IPetUseCase petUseCase,
-            ILogger<PetsController> logger)
+            ILogger<PetsController> logger,
+            IPlanoCuidadosUseCase planoCuidados)
         {
             _petUseCase = petUseCase;
             _logger = logger;
+            _planoCuidados = planoCuidados;
         }
 
         [HttpGet("tutores/{idTutor}/pets")]
@@ -63,7 +67,11 @@ namespace Amandaba.Presentation.Controllers
                     idTutor
                 );
 
-                return Ok(pets);
+                // GET de colecao mantem o array original, acrescentando links por pet.
+                var lista = pets.ToList();
+                foreach (var item in lista)
+                    item.Links = HateoasLinks.ParaPet(item.IdPet);
+                return Ok(lista);
             }
             catch (KeyNotFoundException ex)
             {
@@ -181,6 +189,9 @@ namespace Amandaba.Presentation.Controllers
                     petId
                 );
 
+                // HATEOAS aula 08, preservando o formato do DTO para clientes atuais.
+                pet.Links = HateoasLinks.ParaPet(petId,
+                    User.FindFirst("perfil")?.Value != "TUTOR");
                 return Ok(pet);
             
             
@@ -328,88 +339,13 @@ namespace Amandaba.Presentation.Controllers
             StatusCodes.Status400BadRequest,
             "Erro na geração do plano."
         )]
-        public async Task<IActionResult> ObterPlanoDeCuidados(
-            decimal petId, 
-            [FromServices] GeminiUseCase geminiService,
-            [FromServices] IServiceProvider serviceProvider)
+        public async Task<IActionResult> ObterPlanoDeCuidados(decimal petId)
         {
-            
-                _logger.LogInformation(
-                    "Gerando plano de cuidados IA para o pet {PetId}", 
-                    petId
-                );
-
-                var pet = _petUseCase.ObterPorId(petId);
-                
-                if (pet == null)
-                {
-                    return NotFound(new { mensagem = "Pet não encontrado no banco de dados." });
-                }
-
-                var tipoPet = pet.GetType();
-                var nomePet = tipoPet.GetProperty("Nome")?.GetValue(pet)?.ToString() 
-                           ?? tipoPet.GetProperty("NmPet")?.GetValue(pet)?.ToString() 
-                           ?? "Pet";
-                           
-                var especie = tipoPet.GetProperty("Especie")?.GetValue(pet)?.ToString() 
-                           ?? tipoPet.GetProperty("NmEspecie")?.GetValue(pet)?.ToString() 
-                           ?? "Desconhecida";
-
-                var medicamentos = ObterDadosDinamicos(serviceProvider, "MedicamentoUseCase", petId);
-                var alergias = ObterDadosDinamicos(serviceProvider, "AlergiaUseCase", petId);
-                var doencas = ObterDadosDinamicos(serviceProvider, "DoencaUseCase", petId);
-
-                var opcoesJson = new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-                
-                var contextoClinicoCruzado = $@"
-Você é um sistema veterinário avançado. Analise os dados reais do banco de dados em formato JSON abaixo e crie um plano de cuidados seguro e amigável.
-Cruze ativamente as informações (Ex: Se o pet tem alergia a X e está tomando Y, cite cuidados pertinentes).
-
-DADOS TÉCNICOS:
-- Pet: {JsonSerializer.Serialize(pet, opcoesJson)}
-- Medicamentos Atuais/Histórico: {(medicamentos != null ? JsonSerializer.Serialize(medicamentos, opcoesJson) : "[]")}
-- Quadro de Alergias: {(alergias != null ? JsonSerializer.Serialize(alergias, opcoesJson) : "[]")}
-- Quadro de Doenças: {(doencas != null ? JsonSerializer.Serialize(doencas, opcoesJson) : "[]")}
-";
-
-                var recomendacaoIA = await geminiService.GerarPlanoDeCuidadosAsync(nomePet, especie, contextoClinicoCruzado);
-
-                _logger.LogInformation(
-                    "Plano de cuidados IA gerado com sucesso para o pet {PetId}", 
-                    petId
-                );
-
-                return Ok(new { PetId = petId, Nome = nomePet, Especie = especie, PlanoGerado = recomendacaoIA });
-            
-            
-        }
-
-        private object? ObterDadosDinamicos(IServiceProvider provider, string useCaseSuffix, decimal petId)
-        {
-            
-                var tipoInterface = AppDomain.CurrentDomain.GetAssemblies()
-                    .SelectMany(a => a.GetTypes())
-                    .FirstOrDefault(t => t.IsInterface && t.Name.EndsWith(useCaseSuffix));
-                    
-                if (tipoInterface != null)
-                {
-                    var servico = provider.GetService(tipoInterface);
-                    if (servico != null)
-                    {
-                        var metodo = tipoInterface.GetMethod("ObterPorPet") 
-                                  ?? tipoInterface.GetMethod("ObterTodos") 
-                                  ?? tipoInterface.GetMethod("ObterPorIdPet");
-                                  
-                        if (metodo != null)
-                        {
-                            return metodo.Invoke(servico, new object[] { petId });
-                        }
-                    }
-                }
-            
-            
-            
-            return null;
+            _logger.LogInformation("Gerando plano de cuidados IA do pet {PetId}", petId);
+            var plano = await _planoCuidados.GerarAsync(petId);
+            return plano is null
+                ? NotFound(new { mensagem = "Pet nao encontrado no banco de dados." })
+                : Ok(plano);
         }
     }
 }

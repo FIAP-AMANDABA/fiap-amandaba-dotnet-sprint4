@@ -1,14 +1,18 @@
+using Amandaba.API.Application.Dtos;
+using Amandaba.API.Application.Dtos.Pets;
 using Amandaba.API.Application.Interfaces;
+using Amandaba.API.Presentation;
 using Amandaba.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Amandaba.API.Presentation.Controllers;
+
 [ApiController]
 [Authorize]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType(StatusCodes.Status403Forbidden)]
+[ProducesResponseType(StatusCodes.Status500InternalServerError)]
 [Route("api/pets/me")]
 public class MeusPetsController : ControllerBase
 {
@@ -25,20 +29,24 @@ public class MeusPetsController : ControllerBase
         if (!id.HasValue || User.FindFirst("perfil")?.Value != "TUTOR") return Forbid();
         var tutor = _acesso.ObterIdTutor(id.Value);
         if (!tutor.HasValue) return Forbid();
-        pagina = Math.Max(1, pagina); tamanho = Math.Clamp(tamanho, 1, 100);
-        var dados = _pets.ObterPorTutor(tutor.Value);
-        if (!string.IsNullOrWhiteSpace(nome)) dados = dados.Where(p => p.Nome.Contains(nome, StringComparison.OrdinalIgnoreCase));
-        dados = ordem?.ToLowerInvariant() == "nome_desc"
-            ? dados.OrderByDescending(p => p.Nome) : dados.OrderBy(p => p.Nome);
-        var lista = dados.ToList();
-        string href(int n) => $"/api/pets/me?pagina={n}&tamanho={tamanho}&nome={Uri.EscapeDataString(nome ?? "")}&ordem={ordem}";
-        var links = new List<object> { new { rel = "self", href = href(pagina) } };
-        if (pagina > 1) links.Add(new { rel = "previous", href = href(pagina-1) });
-        if (pagina * tamanho < lista.Count) links.Add(new { rel = "next", href = href(pagina+1) });
-        return Ok(new { pagina, tamanho, total = lista.Count,
-            dados = lista.Skip((pagina-1)*tamanho).Take(tamanho).Select(p => new {
-                pet = p, links = new[] { new { rel = "self", href = $"/api/pets/{p.IdPet}" },
-                                             new { rel = "pesos", href = $"/api/pets/{p.IdPet}/pesos" } }
-            }), links });
+
+        var resultado = _pets.ObterPorTutorPaginado(tutor.Value, pagina, tamanho, nome, ordem);
+        var caminho = "/api/pets/me";
+        var query = $"&nome={Uri.EscapeDataString(nome ?? "")}&ordem={Uri.EscapeDataString(ordem ?? "nome")}";
+        var itens = resultado.Items.Select(p => new PetItemDto
+        {
+            Pet = p,
+            Links = HateoasLinks.ParaPet(p.IdPet)
+        }).ToList();
+        resultado.Links = HateoasLinks.ParaPagina(caminho, resultado.Pagina, resultado.Tamanho, resultado.Total)
+            .Select(link => new LinkDto(link.Href + query, link.Rel, link.Method)).ToList();
+        return Ok(new PageResponseDto<PetItemDto>
+        {
+            Deslocamento = resultado.Deslocamento,
+            RegistroRetornado = resultado.RegistroRetornado,
+            TotalRegistros = resultado.TotalRegistros,
+            Items = itens,
+            Links = resultado.Links
+        });
     }
 }

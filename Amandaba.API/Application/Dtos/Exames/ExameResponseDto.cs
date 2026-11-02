@@ -1,7 +1,9 @@
-﻿namespace Amandaba.Application.Dtos.Exames
+namespace Amandaba.Application.Dtos.Exames
 {
     public class ExameResponseDto
     {
+        public List<Amandaba.API.Application.Dtos.LinkDto> Links { get; set; } = new();
+
         public decimal IdExame { get; set; }
 
         public decimal IdPet { get; set; }

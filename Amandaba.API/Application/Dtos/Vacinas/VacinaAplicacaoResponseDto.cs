@@ -1,7 +1,9 @@
-﻿namespace Amandaba.Application.Dtos.Vacinas
+namespace Amandaba.Application.Dtos.Vacinas
 {
     public class VacinaAplicacaoResponseDto
     {
+        public List<Amandaba.API.Application.Dtos.LinkDto> Links { get; set; } = new();
+
         public decimal IdAplicacaoVacina { get; set; }
 
         public decimal IdPet { get; set; }
