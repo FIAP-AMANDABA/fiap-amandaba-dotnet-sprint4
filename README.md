@@ -2,6 +2,73 @@
 
 API REST para cadastro de pets, acompanhamento de saúde e compartilhamento do histórico clínico entre tutores e veterinários. Desenvolvida para o Challenge 2026 da FIAP, com persistência relacional no Oracle e histórico documental de pesos no MongoDB.
 
+
+## 🚨 ACESSO PARA AVALIAÇÃO — LEIA ANTES DE TESTAR A API
+
+> [!IMPORTANT]
+> **A API .NET utiliza autenticação JWT emitida pelo projeto Java.** Antes de executar endpoints protegidos no Swagger ou no Postman, o avaliador **precisa cadastrar-se ou fazer login na aplicação Java, obter o token JWT da resposta de login e utilizá-lo como Bearer Token nas requisições ao .NET**. Não existe um segundo login no .NET.
+
+### Endereços publicados
+
+| Aplicação | Endereço | Finalidade |
+|---|---|---|
+| **Amandaba Java — Cadastro e login** | **https://fiap-amandaba-java.onrender.com/index.html** | Criar uma conta, entrar e obter um JWT válido |
+| **Amandaba .NET — Swagger** | **https://fiap-amandaba-dotnet.onrender.com/swagger/index.html** | Explorar e testar os endpoints REST do .NET |
+| API .NET — endereço base | https://fiap-amandaba-dotnet.onrender.com | Endereço-base para requisições HTTP, inclusive no Postman |
+
+> **Ordem obrigatória de uso:** Java (login) → copiar `token` → .NET (Authorize) → testar endpoints. Se a aplicação hospedada levar algum tempo para abrir, aguarde seu carregamento antes de iniciar os testes.
+
+### Opção A — Obter o JWT pelo navegador (recomendado)
+
+1. Acesse a **[tela de cadastro/login do Java](https://fiap-amandaba-java.onrender.com/index.html)**. Caso ainda não possua conta, faça o cadastro de um **tutor** e, depois, o login.
+2. **Antes de clicar em Entrar/Login**, pressione **F12** (ou `Ctrl + Shift + I`) no Chrome/Edge para abrir as Ferramentas do Desenvolvedor.
+3. Selecione **Rede / Network** e o filtro **Fetch/XHR**. Se disponível, marque **Preservar registro / Preserve log**, para não perder a requisição se a página navegar.
+4. Volte à página do Java e **faça login com o usuário cadastrado**.
+5. Na lista de requisições da aba Rede, localize a requisição de login (normalmente **`POST /api/auth/login`**). Clique nela e abra **Resposta / Response** ou **Prévia / Preview**.
+6. A resposta JSON possui um campo chamado **`token`**. **Copie somente o valor completo desse campo** (sequência JWT que normalmente começa com `eyJ...`), sem aspas, sem chaves `{}` e sem o prefixo `Bearer `.
+7. Abra o **[Swagger da API .NET](https://fiap-amandaba-dotnet.onrender.com/swagger/index.html)**, clique em **Authorize** (ícone de cadeado), cole o JWT no campo de autenticação e confirme em **Authorize**. O Swagger já utiliza o esquema **HTTP Bearer**.
+8. Agora execute os endpoints protegidos. Um teste rápido é **`GET /api/pets/me`**: para um tutor recém-cadastrado, é **normal** o retorno ter `dados: []` e `total: 0`, até cadastrar o primeiro pet.
+
+**Exemplo do trecho importante da resposta do Java (valores ilustrativos):**
+
+```json
+{
+  "token": "eyJ...TOKEN_GERADO_PELO_JAVA...",
+  "tipo": "Bearer",
+  "perfil": "TUTOR"
+}
+```
+
+**Atenção:** não copie o campo `tipo`, `idUsuario` ou `idPerfil` no lugar de `token`. Não é preciso conhecer nem revelar o segredo `Jwt:Secret` para utilizar a API; o professor precisa apenas do JWT retornado pelo login.
+
+### Opção B — Obter o JWT diretamente pelo Postman
+
+O mesmo token pode ser obtido sem procurar a resposta na aba Rede, fazendo uma requisição de login diretamente no Postman:
+
+1. Crie uma requisição **POST** para `https://fiap-amandaba-java.onrender.com/api/auth/login`.
+2. Em **Headers**, adicione `Content-Type: application/json`.
+3. Em **Body → raw → JSON**, envie as credenciais do usuário cadastrado. **Os nomes exatos dos campos devem corresponder ao formulário Java**; para confirmá-los, veja **Rede → requisição de login → Payload/Carga útil** no navegador. Não presuma que todo projeto usa o mesmo nome de campo.
+4. Clique em **Send**. Na resposta JSON, copie o valor de **`token`**.
+5. Para testar o .NET no Postman, abra uma requisição com URL iniciada por `https://fiap-amandaba-dotnet.onrender.com`, selecione **Authorization → Auth Type: Bearer Token** e cole o JWT. O Postman adiciona automaticamente o cabeçalho `Authorization: Bearer <TOKEN>`.
+
+**Exemplo de cabeçalho enviado à API .NET:**
+
+```http
+Authorization: Bearer eyJ...TOKEN_GERADO_PELO_JAVA...
+```
+
+O endpoint Java `/api/auth/login` está descrito na documentação deste projeto. Caso o formulário Java em produção envie a autenticação para outra rota ou com outro formato de corpo, **a requisição real mostrada em Rede/Network é a referência para reproduzi-la no Postman**.
+
+### Se a avaliação encontrar erros de autenticação
+
+- **401 Unauthorized:** confirme se o JWT foi copiado integralmente, não expirou e foi emitido pela aplicação Java. Gere outro token se necessário.
+- **403 Forbidden:** o JWT pode ser válido, mas o usuário não ter permissão sobre o pet; teste com o tutor proprietário ou veterinário que tenha compartilhamento ativo.
+- **`GET /api/pets/me` retorna lista vazia:** pode ser o comportamento correto para um tutor novo; faça o cadastro de um pet antes de testar suas funcionalidades.
+- **Integrações de banco no ambiente hospedado:** a configuração `mongodb://localhost:27017` mostrada mais abaixo serve para execução **local**. No Render, operações MongoDB dependem de uma instância acessível **pelo servidor hospedado** e da configuração de ambiente correspondente. A publicação da API, por si só, não comprova que o MongoDB remoto esteja acessível.
+- **Gemini:** integração ainda pendente de configuração de chave; a ausência da chave pode deixar seu Health Check em `Degraded`.
+
+**Segurança:** os tokens e senhas reais devem ser usados apenas durante os testes, não incluídos em screenshots públicos, issues, commits ou no README. A autenticação via Java é obrigatória para as operações protegidas, mas os endpoints públicos de Health Check podem ser consultados sem token.
+
 ## Funcionalidades
 
 - Gerenciamento de pets vinculados ao tutor.
@@ -64,13 +131,15 @@ dotnet build
 dotnet run --project Amandaba.API
 ```
 
-Acesse o Swagger pela URL informada na inicialização, acrescentando `/swagger` (por exemplo, `https://localhost:7019/swagger`). No botão **Authorize**, cole somente o valor do token JWT recebido no login Java.
+Para testes locais, acesse o Swagger pela URL informada na inicialização, acrescentando `/swagger` (por exemplo, `https://localhost:7019/swagger`). Para a **API publicada**, use **https://fiap-amandaba-dotnet.onrender.com/swagger/index.html**. No botão **Authorize**, cole somente o JWT recebido no login Java, conforme as instruções de avaliação acima.
 
 Para usar variáveis de ambiente em vez do arquivo local: `ConnectionStrings__Oracle`, `Jwt__Secret`, `Jwt__Issuer`, `Jwt__Audience`, `ConnectionStrings__Mongodb` e `Gemini__ApiKey`.
 
 **O esquema Oracle já é administrado pelo script SQL do Challenge.** Não execute scripts de criação nem migrations diretamente sobre o banco compartilhado com o Java.
 
 ## Autenticação e controle de acesso
+
+> **Instruções para avaliação:** veja a seção **[ACESSO PARA AVALIAÇÃO — LEIA ANTES DE TESTAR A API](#-acesso-para-avaliação--leia-antes-de-testar-a-api)** no início deste README. Lá estão os links públicos, o passo a passo na aba Rede/Network e a alternativa pelo Postman.
 
 O Java é responsável pelo cadastro e pelo endpoint `POST /api/auth/login`. Seu JWT contém `sub` (e-mail), `userId` (ID de `TAB_USUARIO`) e `perfil` (`TUTOR` ou `VETERINARIO`). O .NET valida assinatura, emissor, audiência e expiração. Em seguida, consulta o Oracle para resolver o ID da tabela de perfil (`TAB_TUTOR` ou `TAB_VETERINARIO`) e as permissões sobre cada pet.
 
