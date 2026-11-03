@@ -1,6 +1,6 @@
 # Amandaba — API de Saúde dos Pets (.NET 8)
 
-API REST para cadastro de pets, acompanhamento de saúde e compartilhamento do histórico clínico entre tutores e veterinários. Desenvolvida para o Challenge 2026 da FIAP, com persistência relacional no Oracle e consulta documental de pesos no MongoDB.
+API REST para cadastro de pets, acompanhamento de saúde e compartilhamento do histórico clínico entre tutores e veterinários. Desenvolvida para o Challenge 2026 da FIAP, com persistência relacional no Oracle e histórico documental de pesos no MongoDB.
 
 ## Funcionalidades
 
@@ -19,6 +19,8 @@ API REST para cadastro de pets, acompanhamento de saúde e compartilhamento do h
 ASP.NET Core 8, C#, Entity Framework Core 8, Oracle Database, Oracle.EntityFrameworkCore, MongoDB.EntityFrameworkCore, MongoDB.Bson, JWT Bearer, Swagger/OpenAPI, Serilog, Health Checks, OpenTelemetry/Azure Monitor, xUnit, Moq e WebApplicationFactory.
 
 ## Arquitetura
+
+O diagrama da solução está em **[docs/ARQUITETURA.md](docs/ARQUITETURA.md)**. A visão simplificada é:
 
 ```text
 Front-end
@@ -52,7 +54,7 @@ A organização do código separa `Presentation`, `Application`, `Domain` e `Inf
 
 1. Abra `Amandaba.sln` no Visual Studio ou execute a solução pelo terminal.
 2. Copie `Amandaba.API/appsettings.Local.example.json` para `Amandaba.API/appsettings.Local.json`.
-3. Preencha a string de conexão `ConnectionStrings:Oracle` no formato `User Id=USUARIO;Password=SENHA;Data Source=SERVIDOR:1521/SERVICO;`.
+3. Preencha `ConnectionStrings:Oracle` com os dados de acesso do Oracle FIAP. O projeto utiliza o SID `ORCL`; no exemplo local, a string de conexão é escrita com `Data Source=(DESCRIPTION=...SID=ORCL...)`.
 4. Configure `Jwt:Secret` com a mesma chave de assinatura HS256 utilizada pela API Java. Mantenha `Jwt:Issuer=amandaba-java` e `Jwt:Audience=amandaba-apis`.
 5. Para o MongoDB, instale e inicie o MongoDB Community Server no computador (porta 27017). A configuração da aula utiliza `ConnectionStrings:Mongodb` com `mongodb://localhost:27017` e banco `amandaba`. Não é necessária API Key nem conta no Atlas. O arquivo `appsettings.Local.json` está excluído do Git.
 
@@ -141,7 +143,7 @@ Atenção: a consulta de migrations pode depender de acesso ao banco; não se de
 
 ### MongoDB: histórico documental de pesos
 
-**Configuração local utilizada na aula:** `ConnectionStrings:Mongodb = mongodb://localhost:27017`, banco `amandaba`, coleção `historico_pesos`. O banco é criado no primeiro registro pelo MongoDB. Consulte também `VALIDACAO_MONGODB_LOCAL.md` para instalar, configurar e testar.
+**Configuração local utilizada na aula:** `ConnectionStrings:Mongodb = mongodb://localhost:27017`, banco `amandaba`, coleção `historico_pesos`. O banco é criado no primeiro registro pelo MongoDB. Para testar, inicie o serviço MongoDB no Windows e verifique `GET /api/health/ready` ou `GET /health/mongo` no Swagger/navegador.
 
 O histórico oficial é armazenado em `TAB_PET_PESO`. O endpoint `POST /api/pets/{petId}/pesos/sincronizar` copia as medições do Oracle para um documento da coleção `historico_pesos` no MongoDB. O endpoint `GET /api/pets/{petId}/pesos/mongo` consulta esse documento. A sincronização é manual. O acesso MongoDB usa `MongoApplicationContext : DbContext`, `DbSet<PesoHistoricoDocumento>`, LINQ e `SaveChanges()`, seguindo o exemplo `PedidoRepository` do professor. A lista de medições permanece incorporada ao documento de cada pet.
 
@@ -178,22 +180,43 @@ Para gerar um relatório de cobertura (Coverlet já consta no projeto de testes)
 dotnet test --collect:"XPlat Code Coverage"
 ```
 
-**Validação pendente:** gerar e conferir o relatório real de cobertura em um ambiente com SDK .NET 8; a análise estática não comprova a execução dos testes. O GitHub Actions, em `.github/workflows/ci.yml`, executa restauração, compilação e testes em `push` e `pull_request`.
+**Validação realizada em 03/11/2026:** no Visual Studio, o projeto compilou e **52 testes foram executados com sucesso (24 Application, 12 Domain e 16 Integration; nenhuma falha)**. O relatório percentual de cobertura com Coverlet ainda não foi gerado. Os testes automatizados não substituem a validação das conexões reais. O GitHub Actions, em `.github/workflows/ci.yml`, executa restauração, compilação e testes em `push` e `pull_request`.
+
+## Evidências de funcionamento — Sprint 4
+
+Os testes de fumaça abaixo foram realizados localmente pela equipe em 03/11/2026, utilizando a API no Swagger e o Visual Studio. Os resultados são registrados aqui como referência para a apresentação acadêmica:
+
+| Verificação | Resultado observado |
+|---|---|
+| Compilação e testes xUnit | Build bem-sucedido; 52 testes aprovados (24 Application, 12 Domain e 16 Integration) |
+| Health Checks | API, Oracle e MongoDB `Healthy` |
+| JWT compartilhado com Java | Token do login Java aceito pelo .NET |
+| Cadastro e consulta de pet | Cadastro e consulta autenticada realizados; `GET /api/pets/me` retornou dados e links HATEOAS |
+| Paginação | Estrutura `pagina`, `tamanho`, `total`, `dados` e `links` confirmada; ordenação e múltiplas páginas não foram testadas com vários registros |
+| Oracle → MongoDB | Registro de peso, sincronização e consulta documental concluídos com sucesso |
+| Integração com PL/SQL | `PR_PET_JSON` executada pelo .NET e retornou HTTP 200; seu `DBMS_OUTPUT` permanece no Oracle |
+| Gemini | Não configurado; health check `Degraded` é esperado até a configuração da chave |
+| Migrations | Arquivos presentes; **não aplicadas no banco Oracle compartilhado** |
+
+A demonstração do fluxo de dados é detalhada em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
 
 ## Equipe
 
-| Integrante | RM | Turma |
-|---|---|---|
-| Grazielle de Alencar Silva | 561529 | A confirmar |
-| Rafael Kubagawa Ramos | 565572 | A confirmar |
-| Diego Andrade dos Santos | 566385 | A confirmar |
-| Vinicius Soteras Braga | 566230 | A confirmar |
-| Julia Correa e Souza de Altino | 564870 | A confirmar |
+**Turma:** 2TDSPO
 
-## Informações pendentes para publicação
+| Integrante | RM |
+|---|---|
+| Grazielle de Alencar Silva | 561529 |
+| Rafael Kubagawa Ramos | 565572 |
+| Diego Andrade dos Santos | 566385 |
+| Vinicius Soteras Braga | 566230 |
+| Julia Correa e Souza de Altino | 564870 |
 
-- **Turma exata:** confirmar a identificação (por exemplo, 2TDS...) antes de publicar.
-- **Repositório GitHub:** inserir o URL real da equipe quando estiver disponível.
-- **Ambiente:** não foi confirmada a execução de MongoDB ou Gemini neste ambiente. Os Health Checks criados permitem checar os serviços após configurar as conexões.
-- **MongoDB local:** a persistência usa agora o provider `MongoDB.EntityFrameworkCore` 8.3.4 da aula e documento com medições incorporadas; executar os testes manuais antes da entrega.
-- **Compilação e testes:** precisam ser executados em computador com .NET SDK 8; não foram validados automaticamente nesta revisão.
+**Repositório GitHub:** https://github.com/FIAP-AMANDABA/fiap-amandaba-dotnet-sprint4
+
+## Observações para a entrega
+
+- A integração Gemini foi implementada, mas ainda não foi validada com chave real.
+- Os arquivos de migrations estão presentes, porém não foram aplicados no schema Oracle compartilhado com a API Java; esse requisito permanece sem a evidência de execução.
+- As verificações de Health Check e os testes de fumaça foram concluídos localmente. A integração contínua existe em `.github/workflows/ci.yml`; sua execução no GitHub Actions precisa ser conferida separadamente.
+- **Credenciais:** arquivos versionados não devem conter usuário/senha de banco, segredo JWT ou tokens. Utilize `Amandaba.API/appsettings.Local.json` (ignorado pelo Git) ou variáveis de ambiente. Se uma credencial já foi publicada, altere-a também na origem, pois removê-la de um commit posterior não apaga o histórico anterior.
